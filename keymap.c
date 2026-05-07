@@ -329,12 +329,10 @@ bool oled_task_user() {
         oled_write_P(PSTR("SLAVE\n"), false);
     }
 
-    // Get mods directly - works on both sides
+    // Get mod state - SPLIT_MODS enables this on both sides
     uint8_t mods = get_mods() | get_oneshot_mods();
 
     // Show mirrored mod state on both sides
-    // Correct bit positions: 0x01=LCTL, 0x02=LSFT, 0x04=LALT, 0x08=LGUI
-    //                      0x10=RCTL, 0x20=RSFT, 0x40=RALT, 0x80=RGUI
     oled_set_cursor(0, 2);
     if (mods) {
         if (mods & 0x08 || mods & 0x80) oled_write_P(PSTR("G"), false);  // GUI

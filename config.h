@@ -28,3 +28,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define SPLIT_LAYER_STATE_ENABLE
 
 #define TAPPING_TERM 150
+
+// Homerow mod combo settings
+#define COMBO_TERM 50
+// #define COMBO_MUST_PRESS_IN_ORDER  // Disabled: allow either key order
+#define COMBO_ONLY_FROM_LAYER 0
+#define ONESHOT_TIMEOUT 2000
+#define ONESHOT_TAP_TOGGLE 2

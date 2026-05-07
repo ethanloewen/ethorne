@@ -23,5 +23,5 @@ MASTER_LEFT = yes
 
 # # Optional features
 # TAP_DANCE_ENABLE = yes  # Tap dance keys
-# COMBO_ENABLE = yes      # Key combos
+COMBO_ENABLE = yes        # Key combos (homerow mods)
 

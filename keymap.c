@@ -9,6 +9,27 @@ enum layers {
     _THIRD
 };
 
+// Homerow mod combos using OSM (One Shot Mod)
+const uint16_t PROGMEM spc_a_combo[]    = {KC_SPC, KC_A, COMBO_END};
+const uint16_t PROGMEM spc_s_combo[]    = {KC_SPC, KC_S, COMBO_END};
+const uint16_t PROGMEM spc_d_combo[]    = {KC_SPC, KC_D, COMBO_END};
+const uint16_t PROGMEM spc_f_combo[]    = {KC_SPC, KC_F, COMBO_END};
+const uint16_t PROGMEM ent_j_combo[]    = {KC_ENT, KC_J, COMBO_END};
+const uint16_t PROGMEM ent_k_combo[]    = {KC_ENT, KC_K, COMBO_END};
+const uint16_t PROGMEM ent_l_combo[]    = {KC_ENT, KC_L, COMBO_END};
+const uint16_t PROGMEM ent_scln_combo[] = {KC_ENT, KC_SCLN, COMBO_END};
+
+combo_t key_combos[] = {
+    COMBO(spc_a_combo,    OSM(MOD_LGUI)),  // A = GUI (Cmd/Win)
+    COMBO(spc_s_combo,    OSM(MOD_LALT)),  // S = Alt
+    COMBO(spc_d_combo,    OSM(MOD_LCTL)),  // D = Control
+    COMBO(spc_f_combo,    OSM(MOD_LSFT)),  // F = Shift
+    COMBO(ent_j_combo,    OSM(MOD_RSFT)),  // J = Shift
+    COMBO(ent_k_combo,    OSM(MOD_RCTL)),  // K = Control
+    COMBO(ent_l_combo,    OSM(MOD_LALT)),  // L = Alt (use LALT to avoid AltGr issues)
+    COMBO(ent_scln_combo, OSM(MOD_RGUI)),  // ; = GUI (Cmd/Win)
+};
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_BASE] = LAYOUT_split_3x6_3(
   //,-----------------------------------------------------.                    ,-----------------------------------------------------.
@@ -18,7 +39,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
       KC_LSFT,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M, KC_COMM,  KC_DOT, KC_SLSH,  KC_ESC,
   //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                    KC_LGUI,   MO(_FIRST),  KC_SPC,  MT(MOD_HYPR, KC_ENT), MO(_SECOND), KC_RALT
+                                    KC_LGUI,   MO(_FIRST),  KC_SPC,  KC_ENT, MO(_SECOND), KC_RALT
                                       //`--------------------------'  `--------------------------'
 
   ),
@@ -31,7 +52,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
       KC_LSFT, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                       KC_F11,  KC_F12, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
   //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                          KC_LGUI, _______,  KC_SPC, MT(MOD_HYPR, KC_ENT), MO(_THIRD), KC_RALT
+                                          KC_LGUI, _______,  KC_SPC, KC_ENT, MO(_THIRD), KC_RALT
                                       //`--------------------------'  `--------------------------'
   ),
 
@@ -43,7 +64,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
       KC_LSFT, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                      KC_UNDS, KC_PLUS, KC_LBRC, KC_RBRC, KC_PIPE, KC_TILD,
   //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                        KC_LGUI, MO(_THIRD), KC_SPC, MT(MOD_HYPR, KC_ENT), _______, KC_RALT
+                                        KC_LGUI, MO(_THIRD), KC_SPC, KC_ENT, _______, KC_RALT
                                       //`--------------------------'  `--------------------------'
   )
 //   ,

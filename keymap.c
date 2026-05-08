@@ -4,8 +4,8 @@
 
 enum layers {
     _BASE,
-    _FIRST,
-    _SECOND,
+    _LOWER,
+    _UPPER,
     _THIRD
 };
 
@@ -39,12 +39,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
       KC_LSFT,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M, KC_COMM,  KC_DOT, KC_SLSH,  KC_ESC,
   //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                    KC_LGUI,   MO(_FIRST),  KC_SPC,  KC_ENT, MO(_SECOND), KC_RALT
+                                    KC_LGUI,   MO(_LOWER),  KC_SPC,  KC_ENT, MO(_UPPER), KC_RALT
                                       //`--------------------------'  `--------------------------'
 
   ),
 
-    [_FIRST] = LAYOUT_split_3x6_3(
+    [_LOWER] = LAYOUT_split_3x6_3(
   //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        KC_TAB,   KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,                        KC_F6,   KC_F7,   KC_F8,   KC_F9,  KC_F10, KC_BSPC,
   //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
@@ -56,7 +56,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                       //`--------------------------'  `--------------------------'
   ),
 
-    [_SECOND] = LAYOUT_split_3x6_3(
+    [_UPPER] = LAYOUT_split_3x6_3(
   //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        KC_TAB, KC_EXLM,   KC_AT, KC_HASH,  KC_DLR, KC_PERC,                      KC_CIRC, KC_AMPR, KC_LPRN, KC_RPRN, KC_ASTR, KC_BSPC,
   //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
@@ -118,8 +118,9 @@ static char get_key_char(uint16_t keycode) {
     if (keycode >= KC_A && keycode <= KC_Z) return 'A' + (keycode - KC_A);
     if (keycode >= KC_1 && keycode <= KC_9) return '1' + (keycode - KC_1);
     if (keycode == KC_0) return '0';
-    if (keycode >= KC_F1 && keycode <= KC_F9) return 'a' + (keycode - KC_F1);
-    if (keycode >= KC_F10 && keycode <= KC_F12) return 'j' + (keycode - KC_F10);
+    if (keycode >= KC_F1 && keycode <= KC_F9) return '1' + (keycode - KC_F1);
+    if (keycode == KC_F10) return '0';
+    // KC_F11, KC_F12 fall through to '?'
     switch (keycode) {
         case KC_TAB:  return 't'; case KC_ENT:  return 'e'; case KC_ESC:  return 'x';
         case KC_BSPC: return '<'; case KC_DEL:  return 'd'; case KC_SPC:  return '_';
@@ -136,6 +137,69 @@ static char get_key_char(uint16_t keycode) {
         case XXXXXXX: return ' '; case _______: return ' ';
         default: return '?';
     }
+}
+
+// Draw a character directly at pixel coordinates (x, y) using raw font data.
+static void draw_pixel_char(uint8_t x, uint8_t y, char c, bool invert) {
+    if ((uint8_t)c < 0x20) c = ' ';
+    uint16_t base = (uint8_t)c * OLED_FONT_WIDTH;
+    for (uint8_t col = 0; col < OLED_FONT_WIDTH; col++) {
+        uint8_t bits = pgm_read_byte(&keymap_font[base + col]);
+        for (uint8_t row = 0; row < 8; row++) {
+            bool on = (bits >> row) & 1;
+            oled_write_pixel(x + col, y + row, invert ? !on : on);
+        }
+    }
+}
+
+static void draw_pixel_str(uint8_t x, uint8_t y, const char *s, bool invert) {
+    for (; *s; s++, x += OLED_FONT_WIDTH)
+        draw_pixel_char(x, y, *s, invert);
+}
+
+// Right-panel mod badge layout.
+// 4 vertical badges, side by side: x=87-125, y=11-30 (20px tall).
+// Layer pill sits above them: x=100-113, y=0-9.
+#define BADGE_W    9
+#define BADGE_H   19
+#define BADGE_GAP  1
+#define BADGE_X0  89
+#define BADGE_Y0  12
+
+static void draw_mod_badge(uint8_t idx, char label, bool active) {
+    uint8_t x = BADGE_X0 + idx * (BADGE_W + BADGE_GAP);
+    uint8_t y = BADGE_Y0;
+
+    // 2px rounded-corner border: edges skip 2px at each end, sides skip 2 rows,
+    // then one diagonal closure pixel per corner connects them (CSS border-radius style).
+    for (uint8_t px = x + 2; px < x + BADGE_W - 2; px++) {
+        oled_write_pixel(px, y,               true);
+        oled_write_pixel(px, y + BADGE_H - 1, true);
+    }
+    for (uint8_t py = y + 2; py < y + BADGE_H - 2; py++) {
+        oled_write_pixel(x,               py, true);
+        oled_write_pixel(x + BADGE_W - 1, py, true);
+    }
+    // Corner closure pixels — the single diagonal pixel that closes each corner.
+    oled_write_pixel(x + 1,           y + 1,           true);
+    oled_write_pixel(x + BADGE_W - 2, y + 1,           true);
+    oled_write_pixel(x + 1,           y + BADGE_H - 2, true);
+    oled_write_pixel(x + BADGE_W - 2, y + BADGE_H - 2, true);
+
+    // Solid fill when active (corner closure pixels are border, so no exclusions needed).
+    if (active) {
+        for (uint8_t px = x + 1; px < x + BADGE_W - 1; px++)
+            for (uint8_t py = y + 1; py < y + BADGE_H - 1; py++)
+                oled_write_pixel(px, py, true);
+    }
+
+    // Glyph with 1px left pad to match font's natural right blank (col 5).
+    // Interior is 7px wide: 1px left pad + 5px content + 1px font-blank = 7px exact.
+    // glyph_y is fixed at y+6 (5px from interior top) so that reducing BADGE_H by 1
+    // removes 1px from below the glyph rather than recalculating it away from above.
+    uint8_t glyph_x = x + 2;
+    uint8_t glyph_y = y + 6;
+    draw_pixel_char(glyph_x, glyph_y, label, active);
 }
 
 // Draw a glyph centred in a CELL_W × CELL_H cell with 1px top+left pad.
@@ -191,30 +255,65 @@ bool oled_task_user(void) {
         }
     }
 
-    // Horizontal dividers: top/bottom bounds + 2 row separators (full width).
-    for (uint8_t x = 0; x < 128; x++) {
+    uint8_t keymap_right = 6 * CELL_STEP;
+    // Inner row-dividers span the full keymap width (no corner rounding needed).
+    for (uint8_t x = 0; x <= keymap_right; x++) {
+        oled_write_pixel(x, DIV1_Y, true);
+        oled_write_pixel(x, DIV2_Y, true);
+    }
+    // Outer top/bottom borders: 2px corner rounding, skip 2 pixels at each end.
+    for (uint8_t x = 2; x < keymap_right - 1; x++) {
         oled_write_pixel(x, TOP_DIV_Y, true);
-        oled_write_pixel(x, DIV1_Y,    true);
-        oled_write_pixel(x, DIV2_Y,    true);
         oled_write_pixel(x, BOT_DIV_Y, true);
     }
-
-    // Left and right vertical borders enclosing the keymap (x=0 and x=85).
-    for (uint8_t py = TOP_DIV_Y; py <= BOT_DIV_Y; py++) {
-        oled_write_pixel(0,  py, true);
-        oled_write_pixel(6 * CELL_STEP, py, true);
+    // Vertical borders: skip 2 rows at each end to match.
+    for (uint8_t py = TOP_DIV_Y + 2; py < BOT_DIV_Y - 1; py++) {
+        oled_write_pixel(0,            py, true);
+        oled_write_pixel(keymap_right, py, true);
     }
+    // Corner closure pixels for the keymap outer border.
+    oled_write_pixel(1,                TOP_DIV_Y + 1, true);
+    oled_write_pixel(keymap_right - 1, TOP_DIV_Y + 1, true);
+    oled_write_pixel(1,                BOT_DIV_Y - 1, true);
+    oled_write_pixel(keymap_right - 1, BOT_DIV_Y - 1, true);
 
-    // Layer + mod indicators past the right border (col 15 = x 90).
+    // Layer pill: x=89-127 (39px), y=0-10 (11px), 2px rounded corners.
+    // Interior x=91-125 (35px visible between sides); text centred within x=90-126 (37px).
+    for (uint8_t px = 91; px < 126; px++) {
+        oled_write_pixel(px, 0,  true);
+        oled_write_pixel(px, 10, true);
+    }
+    for (uint8_t py = 2; py < 9; py++) {
+        oled_write_pixel(89,  py, true);
+        oled_write_pixel(127, py, true);
+    }
+    // Corner closure pixels for the pill.
+    oled_write_pixel(90, 1,  true);
+    oled_write_pixel(126, 1, true);
+    oled_write_pixel(90, 9,  true);
+    oled_write_pixel(126, 9, true);
+    // Layer name centred in 37px interior (x=90-126).
+    // BASE=24px offset 6 → x=96; LOWER/UPPER=30px offset 3 → x=93.
+    const char *layer_name;
+    switch (layer) {
+        case _BASE:  layer_name = "BASE";  break;
+        case _LOWER: layer_name = "LOWER"; break;
+        case _UPPER: layer_name = "UPPER"; break;
+        default:     layer_name = "????";  break;
+    }
+    uint8_t name_len = 0;
+    while (layer_name[name_len]) name_len++;
+    // Centre on visible text width (name_len*6 - 1) by using 38 instead of 37,
+    // offsetting the font's built-in 1px blank trailing column on the last character.
+    uint8_t text_x = 90 + (38 - name_len * OLED_FONT_WIDTH) / 2;
+    draw_pixel_str(text_x, 2, layer_name, false);
+
+    // Mod badges: four vertical badges G A C S in the right panel.
     uint8_t mods = get_mods() | get_oneshot_mods();
-    oled_set_cursor(15, 0);
-    oled_write_char('L', false);
-    oled_write_char('0' + layer, false);
-    oled_set_cursor(15, 3);
-    oled_write_char((mods & MOD_MASK_GUI)   ? 'G' : '.', false);
-    oled_write_char((mods & MOD_MASK_ALT)   ? 'A' : '.', false);
-    oled_write_char((mods & MOD_MASK_CTRL)  ? 'C' : '.', false);
-    oled_write_char((mods & MOD_MASK_SHIFT) ? 'S' : '.', false);
+    draw_mod_badge(0, 'G', mods & MOD_MASK_GUI);
+    draw_mod_badge(1, 'A', mods & MOD_MASK_ALT);
+    draw_mod_badge(2, 'C', mods & MOD_MASK_CTRL);
+    draw_mod_badge(3, 'S', mods & MOD_MASK_SHIFT);
 
     return false;
 }

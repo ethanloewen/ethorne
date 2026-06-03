@@ -140,11 +140,9 @@ static uint8_t get_key_label(uint16_t keycode, char *buf) {
 }
 
 static void draw_glyph(uint8_t x, uint8_t y, const char *label, uint8_t len, bool invert) {
-    if (invert) {
-        for (uint8_t cx = 0; cx < CELL_W; cx++)
-            for (uint8_t cy = 0; cy < CELL_H; cy++)
-                oled_write_pixel(x + cx, y + cy, true);
-    }
+    for (uint8_t cx = 0; cx < CELL_W; cx++)
+        for (uint8_t cy = 0; cy < CELL_H; cy++)
+            oled_write_pixel(x + cx, y + cy, invert);
     uint8_t gx = x + 10 - len * 3;
     for (uint8_t i = 0; i < len; i++) {
         char c = label[i];
@@ -162,12 +160,42 @@ static void draw_glyph(uint8_t x, uint8_t y, const char *label, uint8_t len, boo
 }
 
 bool oled_task_user(void) {
-    oled_clear();
-
     uint8_t layer   = get_highest_layer(layer_state);
     bool    is_left = is_keyboard_master();
 
+    static bool     borders_drawn = false;
+    static uint8_t  prev_layer = 255;
+    static bool     prev_pressed[3][6];
+
     const uint8_t row_y[3] = { ROW0_Y, ROW1_Y, ROW2_Y };
+    uint8_t kx0   = is_left ? 7 : 0;
+    uint8_t ind_x = is_left ? 2 : 122;
+
+    if (!borders_drawn) {
+        for (uint8_t r = 0; r < 3; r++) {
+            for (uint8_t d = 1; d < 6; d++) {
+                uint8_t vx = kx0 + d * CELL_STEP;
+                for (uint8_t py = row_y[r]; py < row_y[r] + CELL_H; py++)
+                    oled_write_pixel(vx, py, true);
+            }
+        }
+        uint8_t keymap_right = kx0 + 6 * CELL_STEP;
+        for (uint8_t x = kx0; x <= keymap_right; x++) {
+            oled_write_pixel(x, DIV1_Y, true);
+            oled_write_pixel(x, DIV2_Y, true);
+        }
+        for (uint8_t x = kx0; x <= keymap_right; x++) {
+            oled_write_pixel(x, TOP_DIV_Y, true);
+            oled_write_pixel(x, BOT_DIV_Y, true);
+        }
+        for (uint8_t py = TOP_DIV_Y; py <= BOT_DIV_Y; py++) {
+            oled_write_pixel(kx0,          py, true);
+            oled_write_pixel(keymap_right,  py, true);
+        }
+        borders_drawn = true;
+    }
+
+    bool layer_changed = (layer != prev_layer);
 
     for (uint8_t r = 0; r < 3; r++) {
         matrix_row_t mrow = matrix_get_row(is_left ? r : r + 4);
@@ -177,64 +205,27 @@ bool oled_task_user(void) {
                 : pgm_read_word(&keymaps[layer][r + 4][5 - c]);
             uint8_t  mat_col = is_left ? c : (5 - c);
             bool     pressed = (mrow >> mat_col) & 1;
-            char label[3];
-            uint8_t len = get_key_label(kc, label);
-            draw_glyph(1 + c * CELL_STEP, row_y[r], label, len, pressed);
-        }
-    }
-
-    // Vertical inter-cell dividers (5 gaps between 6 cells).
-    // Cells start at x=1, so gap d sits at x = 1 + d*CELL_STEP - 1 = d*CELL_STEP.
-    for (uint8_t r = 0; r < 3; r++) {
-        for (uint8_t d = 1; d < 6; d++) {
-            uint8_t vx = d * CELL_STEP;
-            for (uint8_t py = row_y[r]; py < row_y[r] + CELL_H; py++)
-                oled_write_pixel(vx, py, true);
-        }
-    }
-
-    uint8_t keymap_right = 6 * CELL_STEP;
-    // Inner row-dividers span the full keymap width (no corner rounding needed).
-    for (uint8_t x = 0; x <= keymap_right; x++) {
-        oled_write_pixel(x, DIV1_Y, true);
-        oled_write_pixel(x, DIV2_Y, true);
-    }
-    // Outer top/bottom borders: 2px corner rounding, skip 2 pixels at each end.
-    for (uint8_t x = 2; x < keymap_right - 1; x++) {
-        oled_write_pixel(x, TOP_DIV_Y, true);
-        oled_write_pixel(x, BOT_DIV_Y, true);
-    }
-    // Vertical borders: skip 2 rows at each end to match.
-    for (uint8_t py = TOP_DIV_Y + 2; py < BOT_DIV_Y - 1; py++) {
-        oled_write_pixel(0,            py, true);
-        oled_write_pixel(keymap_right, py, true);
-    }
-    // Corner closure pixels for the keymap outer border.
-    oled_write_pixel(1,                TOP_DIV_Y + 1, true);
-    oled_write_pixel(keymap_right - 1, TOP_DIV_Y + 1, true);
-    oled_write_pixel(1,                BOT_DIV_Y - 1, true);
-    oled_write_pixel(keymap_right - 1, BOT_DIV_Y - 1, true);
-
-    // Layer indicators: 3 rectangles aligned with keymap rows (4px wide, x=122-125).
-    const uint8_t ind_layers[3] = { _UPPER, _BASE, _LOWER };
-    for (uint8_t r = 0; r < 3; r++) {
-        bool active = (layer == ind_layers[r]);
-        uint8_t ix = 122;
-        uint8_t iy = row_y[r];
-        if (active) {
-            for (uint8_t px = ix; px < ix + 4; px++)
-                for (uint8_t py = iy; py < iy + CELL_H; py++)
-                    oled_write_pixel(px, py, true);
-        } else {
-            for (uint8_t px = ix; px < ix + 4; px++) {
-                oled_write_pixel(px, iy, true);
-                oled_write_pixel(px, iy + CELL_H - 1, true);
-            }
-            for (uint8_t py = iy; py < iy + CELL_H; py++) {
-                oled_write_pixel(ix, py, true);
-                oled_write_pixel(ix + 3, py, true);
+            if (layer_changed || pressed != prev_pressed[r][c]) {
+                char label[3];
+                uint8_t len = get_key_label(kc, label);
+                draw_glyph(kx0 + 1 + c * CELL_STEP, row_y[r], label, len, pressed);
+                prev_pressed[r][c] = pressed;
             }
         }
+    }
+
+    if (layer_changed) {
+        const uint8_t ind_layers[3] = { _UPPER, _BASE, _LOWER };
+        for (uint8_t r = 0; r < 3; r++) {
+            bool active = (layer == ind_layers[r]);
+            uint8_t iy = row_y[r];
+            for (uint8_t px = ind_x; px < ind_x + 4; px++)
+                for (uint8_t py = iy; py < iy + CELL_H; py++) {
+                    bool border = (px == ind_x || px == ind_x + 3 || py == iy || py == iy + CELL_H - 1);
+                    oled_write_pixel(px, py, active || border);
+                }
+        }
+        prev_layer = layer;
     }
 
     return false;
